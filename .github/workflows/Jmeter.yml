@@ -3,8 +3,9 @@
 name: jmeter_Git
 
 on:
-  push:
-  #workflow_dispatch:
+  repository_dispatch:
+    types:
+      - trigger-workflow-event  
 
 jobs:
   JMeter-Demo:
