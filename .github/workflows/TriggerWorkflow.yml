@@ -2,6 +2,6 @@ name: My Workflow
 
 on:
   repository_dispatch:
-    types:
-      - trigger-workflow-event
+    types: [trigger-workflow]
+
 
