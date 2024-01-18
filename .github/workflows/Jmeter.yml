@@ -1,0 +1,88 @@
+#  YML to get jmeter and run it
+
+name: jmeter_Git
+
+on:
+  push:
+  #workflow_dispatch:
+
+jobs:
+  JMeter-Demo:
+    runs-on: ubuntu-latest
+    # runs-on: self-hosted
+
+    steps :
+     - uses: actions/checkout@v3
+
+     - name: setup-jmeter
+       run: |
+          java -version  
+          wget -q https://dlcdn.apache.org//jmeter/binaries/apache-jmeter-5.6.2.tgz
+          tar -xf apache-jmeter-5.6.2.tgz 
+          cd $GITHUB_WORKSPACE/apache-jmeter-5.6.2/bin
+          echo "locating jmeter files"
+          pwd
+          java -jar ApacheJMeter.jar -v
+         
+     - name: download CMD Runner
+       run: |
+          echo "Downloading CMDRunner"
+          cd $GITHUB_WORKSPACE/apache-jmeter-5.6.2/lib
+          wget -q https://repo1.maven.org/maven2/kg/apc/cmdrunner/2.2/cmdrunner-2.2.jar
+     - name: download Plugin Manager
+       run: |
+          cd $GITHUB_WORKSPACE/apache-jmeter-5.6.2/lib/ext
+          wget -q https://repo1.maven.org/maven2/kg/apc/jmeter-plugins-manager/1.6/jmeter-plugins-manager-1.6.jar
+     - name: install plugins
+       run: |
+          cd $GITHUB_WORKSPACE/apache-jmeter-5.6.2/lib
+          sudo java  -jar cmdrunner-2.2.jar --tool org.jmeterplugins.repository.PluginManagerCMD \
+          install jpgc-functions,jpgc-cmd,jpgc-graphs-basic,jpgc-graphs-additional,jpgc-graphs-dist,jpgc-graphs-vs,jpgc-ggl,\
+          jpgc-graphs-composite,tilln-junit,jpgc-csl,jpgc-mergeresults,jpgc-ffw,jpgc-casutg,jpgc-tst,jpgc-dummy, \bzm-parallel,jpgc-autostop,jpgc-synthesis, bzm-random-csv >/dev/null 2>&1
+         # install-all-except jpgc-hadoop,jpgc-oauth,ulp-jmeter-autocorrelator-plugin,ulp-jmeter-videostreaming-plugin,ulp-jmeter-gwt-plugin,tilln-iso8583,mqtt-xmeter
+     - name: Look for jmx in directory 
+       run: | 
+          cd $GITHUB_WORKSPACE
+          ls -al
+     - name: Run JMeter Test
+       run: |
+          cd $GITHUB_WORKSPACE/apache-jmeter-5.6.2/bin
+          java -Xms2g -Xmx2g -jar ApacheJMeter.jar  -n \
+            -t $GITHUB_WORKSPACE/scenarios/GitActions.jmx \
+            -l $GITHUB_WORKSPACE/result.csv \
+            -q $GITHUB_WORKSPACE/properties/Short_Smoke_Test.properties \
+            -q $GITHUB_WORKSPACE/properties/Smoke_Test_NFR.properties \
+            -e  -o $GITHUB_WORKSPACE/html_results
+            
+           
+     - name: look for results files
+       run: |         
+         cd ${{ github.workspace }}
+         ls -al
+       
+     - name: Upload csv Results
+       uses: actions/upload-artifact@v3
+       with:
+          name: jmeter-results
+          path: ${{ github.workspace }}/result.csv   # using WORKSPACE variable does not work
+
+     - name: Upload jmeter log
+       uses: actions/upload-artifact@v3
+       with:
+          name: jmeter-log
+          path: ${{ github.workspace }}/apache-jmeter-5.6.2/bin/jmeter.log   # using WORKSPACE variable does not work
+
+     - name: Upload html Results
+       uses: actions/upload-artifact@v3
+       with:
+          name: jmeter-results-html
+          path: ${{ github.workspace }}/html_results   # using WORKSPACE variable does not work
+         
+     - name: Publish Test Report
+       uses: mikepenz/action-junit-report@v3
+       if: success() || failure() # always run even if the previous step fails
+       with:
+           report_paths: '${{ github.workspace }}/apache-jmeter-5.6.2/bin/junit_results.xml'
+           detailed_summary: true
+           fail_on_failure: true
+           include_passed: true
